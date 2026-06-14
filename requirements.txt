@@ -1,11 +1,3 @@
-Flask
-gunicorn
-psycopg2-binary
-flask-sqlalchemy
-flask-login
-pandas
-reportlab
-requests
 fastapi
-uvicorn
+uvicorn[standard]
 prisma
