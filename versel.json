@@ -2,4 +2,5 @@
   "builds": [{"src": "app.py", "use": "@vercel/python"}],
   "routes": [{"src": "/(.*)", "dest": "app.py"}],
   "env": {"PRISMA_CLIENT_ENGINE_TYPE": "library"}
+  "build": {"env": {"PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"}}
 }
