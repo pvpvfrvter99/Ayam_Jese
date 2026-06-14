@@ -1,3 +1,7 @@
-fastapi
-uvicorn[standard]
-prisma
+Flask
+gunicorn
+flask-sqlalchemy
+psycopg2-binary
+flask-login
+pandas
+reportlab
