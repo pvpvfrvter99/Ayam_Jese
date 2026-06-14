@@ -14,11 +14,9 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
 import requests
-from flask import flask, request, flash, redirect, url_for
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'ayamjeze2026-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restoran.db'
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 db = SQLAlchemy(app)
 
