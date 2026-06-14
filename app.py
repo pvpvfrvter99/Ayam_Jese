@@ -328,3 +328,8 @@ Status: ⏳ *MENUNGGU KONFIRMASI*"""
         requests.post(url, data=data, headers=headers, timeout=5)
     except:
         print("Gagal kirim WA, cek token/nomor")
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+application = app  # <-- TAMBAHIN BARIS INI DOANG
