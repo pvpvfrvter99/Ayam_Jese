@@ -364,14 +364,9 @@ Silakan cek dashboard admin!"""
     except:
         print("Gagal kirim WA, cek token/nomor")
 
-# JALANKAN APP
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        # Buat admin default: username=admin password=admin123
-        if User.query.count() == 0:
-            admin = User(username='admin', password=generate_password_hash('admin123'))
-            db.session.add(admin)
+app = Flask(__name__)
+app.secret_key = 'test123'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
         # Menu default
         if Menu.query.count() == 0:
             default_menus = [
