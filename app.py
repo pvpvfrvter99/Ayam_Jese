@@ -14,7 +14,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
 import requests
-
+from prisma import Prisma
+prisma = Prisma()
 # 1. APP CUMA 1 KALI DI SINI
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'ayamjeze2026-secret-key')
