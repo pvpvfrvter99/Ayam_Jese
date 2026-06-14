@@ -14,21 +14,25 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import os
 import requests
+
+# 1. APP CUMA 1 KALI DI SINI
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ayamjeze2026-secret-key'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'ayamjeze2026-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 db = SQLAlchemy(app)
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except:
+    pass
 
-# Login Manager
+# 2. LOGIN MANAGER
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# MODEL DATABASE
+# 3. MODEL DATABASE
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -60,7 +64,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# ROUTE CUSTOMER - PILIH MEJA DULU
+# 4. ROUTE CUSTOMER
 @app.route('/')
 def index():
     return render_template('pilih_meja.html')
@@ -75,32 +79,30 @@ def pesan():
     nomor_meja = int(request.form['nomor_meja'])
     nama = request.form['nama']
     metode_bayar = request.form['metode_bayar']
-
-    # Ambil semua menu yang dikirim dari form
     menu_ids = request.form.getlist('menu_id[]')
     jumlahs = request.form.getlist('jumlah[]')
 
     for i in range(len(menu_ids)):
         menu_id = int(menu_ids[i])
         jumlah = int(jumlahs[i])
-
-        if jumlah > 0: # cuma simpan kalau jumlah > 0
+        if jumlah > 0:
             menu_obj = Menu.query.get(menu_id)
             total = menu_obj.harga * jumlah
-
             pesanan_baru = Pesanan(
                 nomor_meja=nomor_meja,
                 nama=nama,
-                menu=f"{menu_obj.nama} x{jumlah}", # simpan "Ayam Crispy x3"
+                menu=f"{menu_obj.nama} x{jumlah}",
                 total=total,
                 metode_bayar=metode_bayar
             )
             db.session.add(pesanan_baru)
+            kirim_wa_admin(pesanan_baru)
 
     db.session.commit()
     flash(f'Pesanan Meja {nomor_meja} berhasil dikirim!', 'success')
     return redirect(f'/meja/{nomor_meja}')
-# ROUTE KASIR
+
+# 5. ROUTE KASIR
 @app.route('/kasir')
 @login_required
 def kasir():
@@ -123,13 +125,12 @@ def bayar_meja(nomor):
     flash(f'Meja {nomor} berhasil dibayar!', 'success')
     return redirect('/kasir')
 
-# ROUTE LAPORAN
+# 6. ROUTE LAPORAN
 @app.route('/laporan')
 @login_required
 def laporan():
     start_date = request.args.get('start')
     end_date = request.args.get('end')
-
     query = Pesanan.query.filter_by(status="Selesai")
 
     if start_date and end_date:
@@ -146,11 +147,11 @@ def laporan():
     menu_terlaris = Counter(menu_list).most_common(5)
 
     omset_harian = db.session.query(
-        func.strftime('%d-%m', Pesanan.tanggal),
+        func.date(Pesanan.tanggal),
         func.sum(Pesanan.total)
     ).filter_by(status="Selesai").filter(
         Pesanan.tanggal.between(start_date, end_date)
-    ).group_by(func.strftime('%d-%m', Pesanan.tanggal)).order_by(func.date(Pesanan.tanggal)).all()
+    ).group_by(func.date(Pesanan.tanggal)).order_by(func.date(Pesanan.tanggal)).all()
 
     return render_template('laporan.html',
                          pesanan=pesanan_selesai,
@@ -166,15 +167,11 @@ def laporan():
 def export_excel():
     start_date = request.args.get('start')
     end_date = request.args.get('end')
-    
     query = Pesanan.query.filter_by(status="Selesai")
     if start_date and end_date:
         query = query.filter(Pesanan.tanggal.between(start_date, end_date))
-
     pesanan = query.all()
     total_omset = sum(p.total for p in pesanan)
-
-    # Data utama
     data = [{
         'Tanggal': p.tanggal.strftime('%d-%m-%Y %H:%M'),
         'Meja': p.nomor_meja,
@@ -183,60 +180,43 @@ def export_excel():
         'Total': p.total,
         'Metode Bayar': p.metode_bayar
     } for p in pesanan]
-
     df = pd.DataFrame(data)
-    
-    # Buat Excel di memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Laporan', index=False, startrow=2)
         worksheet = writer.sheets['Laporan']
-        
-        # Header resto
         worksheet['A1'] = 'LAPORAN PENJUALAN - RESTORAN AYAM JEZE'
         worksheet['A2'] = f'Periode: {start_date} s/d {end_date} | Total Omset: Rp {total_omset:,}'
-        
-        # Atur lebar kolom biar rapi
-        worksheet.column_dimensions['A'].width = 18  # Tanggal
-        worksheet.column_dimensions['B'].width = 8   # Meja
-        worksheet.column_dimensions['C'].width = 20  # Nama
-        worksheet.column_dimensions['D'].width = 30  # Menu
-        worksheet.column_dimensions['E'].width = 15  # Total
-        worksheet.column_dimensions['F'].width = 15  # Metode
-
+        worksheet.column_dimensions['A'].width = 18
+        worksheet.column_dimensions['B'].width = 8
+        worksheet.column_dimensions['C'].width = 20
+        worksheet.column_dimensions['D'].width = 30
+        worksheet.column_dimensions['E'].width = 15
+        worksheet.column_dimensions['F'].width = 15
     output.seek(0)
     filename = f'laporan_ayamjeze_{start_date}_s_d_{end_date}.xlsx'
     return send_file(output, download_name=filename, as_attachment=True)
+
 @app.route('/export_pdf')
 @login_required
 def export_pdf():
     start_date = request.args.get('start')
     end_date = request.args.get('end')
-    
     query = Pesanan.query.filter_by(status="Selesai")
     if start_date and end_date:
         query = query.filter(Pesanan.tanggal.between(start_date, end_date))
-
     pesanan = query.all()
     total_omset = sum(p.total for p in pesanan)
-
-    # Buat PDF di memory
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     elements = []
-
-    # Judul
     title = Paragraph("Laporan Penjualan - Restoran Ayam Jeze", styles['Title'])
     elements.append(title)
-    
-    # Info tanggal
     subtitle = Paragraph(f"Periode: {start_date} s/d {end_date}", styles['Normal'])
     elements.append(subtitle)
     elements.append(Paragraph(f"Total Omset: Rp {total_omset:,}", styles['Heading2']))
     elements.append(Paragraph("<br/>", styles['Normal']))
-
-    # Data tabel
     data = [['Tanggal', 'Meja', 'Nama', 'Menu', 'Total', 'Metode']]
     for p in pesanan:
         data.append([
@@ -247,8 +227,6 @@ def export_pdf():
             f"Rp {p.total:,}",
             p.metode_bayar
         ])
-
-    # Style tabel
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#8B0000')),
@@ -262,13 +240,11 @@ def export_pdf():
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#FFD700'))
     ]))
     elements.append(table)
-
     doc.build(elements)
     buffer.seek(0)
-    
     return send_file(buffer, download_name=f'laporan_{start_date}_s_d_{end_date}.pdf', as_attachment=True)
 
-# ROUTE LOGIN ADMIN
+# 7. ROUTE LOGIN ADMIN
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -287,7 +263,7 @@ def logout():
     logout_user()
     return redirect('/login')
 
-# ROUTE ADMIN DASHBOARD
+# 8. ROUTE ADMIN DASHBOARD
 @app.route('/admin')
 @login_required
 def admin():
@@ -305,12 +281,10 @@ def tambah_menu():
     harga = int(request.form['harga'])
     deskripsi = request.form['deskripsi']
     foto = request.files['foto']
-
     filename = 'default.jpg'
     if foto and allowed_file(foto.filename):
         filename = secure_filename(foto.filename)
         foto.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
     menu_baru = Menu(nama=nama, harga=harga, deskripsi=deskripsi, foto=filename)
     db.session.add(menu_baru)
     db.session.commit()
@@ -333,74 +307,23 @@ def selesai_pesanan(id):
     pesanan.status = 'Selesai'
     db.session.commit()
     return redirect('/admin')
+
 def kirim_wa_admin(pesanan):
     """Kirim notifikasi WA ke admin pas ada pesanan baru"""
-    token = "GANTI_DENGAN_TOKEN_FONNTE_KAMU"  # Daftar di fonnte.com gratis 20 chat/hari
-    nomor_admin = "62812xxxxxx"  # Ganti: 62 + nomor kamu tanpa 0. Contoh: 628123456789
-    
+    token = os.environ.get('FONNTE_TOKEN', "GANTI_DENGAN_TOKEN_FONNTE_KAMU")
+    nomor_admin = os.environ.get('ADMIN_WA', "62812xxxxxx")
     pesan = f"""🍗 *PESAN BARU - AYAM JEZE* 🍗
-
 *Meja:* {pesanan.nomor_meja}
 *Nama:* {pesanan.nama}
 *Menu:* {pesanan.menu}
 *Total:* Rp {pesanan.total:,}
 *Metode:* {pesanan.metode_bayar}
 *Waktu:* {pesanan.tanggal.strftime('%d/%m/%Y %H:%M:%S')}
-
-Status: ⏳ *MENUNGGU KONFIRMASI*
-Silakan cek dashboard admin!"""
-
+Status: ⏳ *MENUNGGU KONFIRMASI*"""
     url = "https://api.fonnte.com/send"
-    data = {
-        "target": nomor_admin,
-        "message": pesan,
-        "countryCode": "62"
-    }
-    headers = {
-        "Authorization": token
-    }
+    data = {"target": nomor_admin, "message": pesan, "countryCode": "62"}
+    headers = {"Authorization": token}
     try:
         requests.post(url, data=data, headers=headers, timeout=5)
     except:
         print("Gagal kirim WA, cek token/nomor")
-
-app = Flask(__name__)
-app.secret_key = 'test123'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-        # Menu default
-        if Menu.query.count() == 0:
-            default_menus = [
-                Menu(nama="Ayam Crispy", harga=15000, deskripsi="Ayam crispy renyah", foto="default.jpg"),
-                Menu(nama="Ayam Geprek", harga=17000, deskripsi="Pedas nampol", foto="default.jpg"),
-                Menu(nama="Nasi + Ayam", harga=18000, deskripsi="Paket lengkap", foto="default.jpg"),
-                Menu(nama="Es Teh", harga=5000, deskripsi="Segar manis", foto="default.jpg"),
-                Menu(nama="Es Jeruk", harga=6000, deskripsi="Asem segar", foto="default.jpg")
-            ]
-            db.session.add_all(default_menus)
-        db.session.commit()
-@app.route('/kirim_pesanan/<int:nomor_meja>', methods=['POST'])
-def kirim_pesanan(nomor_meja):
-    nama = request.form['nama']
-    menu = request.form['menu']
-    total = int(request.form['total'])
-    metode_bayar = request.form['metode_bayar']
-
-    pesanan_baru = Pesanan(
-        nomor_meja=nomor_meja,
-        nama=nama,
-        menu=menu,
-        total=total,
-        metode_bayar=metode_bayar
-    )
-    db.session.add(pesanan_baru)
-    db.session.commit()
-    
-    kirim_wa_admin(pesanan_baru)  # <-- TAMBAH INI DOANG
-
-app = Flask(__name__)
-app.secret_key = 'test123'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-
-@app.route('/')
-def home():
-    return "Ayam Jeze Online! 🎉"
