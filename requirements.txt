@@ -6,3 +6,6 @@ flask-login
 pandas
 reportlab
 requests
+fastapi
+uvicorn
+prisma
