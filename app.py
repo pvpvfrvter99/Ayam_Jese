@@ -403,16 +403,12 @@ def kirim_pesanan(nomor_meja):
     
     kirim_wa_admin(pesanan_baru)  # <-- TAMBAH INI DOANG
 
-@app.route('/order', methods=['POST'])
-def order():
-    # ... kode simpan pesanan kamu ...
-    flash('Pesanan Berhasil!', 'success')
-    return redirect(url_for('order'))
-    
-    return render_template('sukses.html', pesanan=pesanan_baru)
-if __name__ == "__main__":
-                import os
-                port = int(os.environ.get("PORT", 5000))
-                app.run(host="0.0.0.0", port=port)
-app = Flask(__name__)  # <-- WAJIB namanya "app"
-app.secret_key = os.environ.get('SECRET_KEY', 'ayam-jeze-fallback')
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'test123')
+
+@app.route('/')
+def home():
+    return "Ayam Jeze Online! 🎉"
+
+if __name__ == '__main__':
+    app.run()
