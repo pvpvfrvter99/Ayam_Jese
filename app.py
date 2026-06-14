@@ -402,11 +402,9 @@ def kirim_pesanan(nomor_meja):
     kirim_wa_admin(pesanan_baru)  # <-- TAMBAH INI DOANG
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'test123')
+app.secret_key = 'test123'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 
 @app.route('/')
 def home():
     return "Ayam Jeze Online! 🎉"
-
-if __name__ == '__main__':
-    app.run()
